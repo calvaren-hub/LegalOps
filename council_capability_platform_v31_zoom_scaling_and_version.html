@@ -1,0 +1,1351 @@
+
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Council Capability Platform v31</title>
+<style>
+:root{
+  --bg:#0b0c10; --text:#e7e9ee; --muted:#9aa3b2; --border:rgba(255,255,255,.08); --panel:#11131a;
+}
+body {margin:0;background:var(--bg);color:var(--text);font-family:system-ui;}
+header {display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--border);background:#0f1117;}
+.tabs button {background:none;border:none;color:var(--muted);margin-left:16px;cursor:pointer;font-size:14px;}
+.tabs button.active {color:white;}
+.view {display:none;height:calc(100vh - 50px);}
+.view.active {display:flex;}
+.admin {display:flex;width:100%;}
+.panel {padding:16px;border-right:1px solid var(--border);overflow:auto;background:var(--panel);}
+.panel:last-child{border-right:none;}
+input,select {width:100%;margin:4px 0;padding:8px;background:#0f1117;color:white;border:1px solid rgba(255,255,255,.12);border-radius:10px;}
+button {margin:6px 0;padding:8px 10px;background:#1f2430;color:white;border:1px solid rgba(255,255,255,.12);border-radius:10px;cursor:pointer;}
+button.secondary{background:transparent;}
+.member-item{cursor:pointer;padding:6px 6px;border-radius:10px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;}
+.member-item:hover{background:rgba(255,255,255,.04);color:white;}
+.badge{font-size:11px;color:rgba(255,255,255,.65);border:1px solid rgba(255,255,255,.10);padding:2px 6px;border-radius:999px;}
+.domain-group{margin:10px 0;padding:10px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(0,0,0,.18);}
+.domain-title{font-weight:650;margin-bottom:6px;color:var(--muted);font-size:12px;letter-spacing:.2px;text-transform:uppercase;}
+.chk{display:flex;gap:10px;align-items:flex-start;margin:6px 0;}
+.chk input{width:auto;margin-top:2px;}
+hr{border:none;border-top:1px solid rgba(255,255,255,.10);margin:14px 0;}
+canvas {width:100%;height:100%;display:block;}
+.mapwrap{position:relative;width:100%;height:100%;}
+.tooltip{position:absolute;left:14px;top:14px;background:rgba(0,0,0,.75);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px 12px;max-width:360px;backdrop-filter:blur(10px);display:none;}
+.tooltip .name{font-weight:700;margin-bottom:2px;}
+.tooltip .meta{color:var(--muted);font-size:12px;}
+.small{font-size:12px;color:var(--muted);}
+
+.maplayout{display:grid;grid-template-columns:360px 1fr;width:100%;height:100%;}
+.mappanel{padding:16px;border-right:1px solid var(--border);overflow:auto;background:var(--panel);}
+.card{border:1px solid rgba(255,255,255,.10);border-radius:14px;padding:10px 12px;background:rgba(0,0,0,.18);}
+.listitem{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;margin:6px 0;cursor:pointer;background:rgba(0,0,0,.12);}
+.listitem:hover{background:rgba(255,255,255,.04);}
+.dot{width:10px;height:10px;border-radius:999px;display:inline-block;margin-right:8px;flex:0 0 auto;}
+.li-left{display:flex;align-items:center;gap:8px;min-width:0;}
+.li-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.count{font-size:12px;color:rgba(255,255,255,.70);border:1px solid rgba(255,255,255,.12);padding:2px 8px;border-radius:999px;}
+
+
+/* Scrollbars (vertical + horizontal) */
+*{scrollbar-width:thin; scrollbar-color: rgba(255,255,255,.22) rgba(255,255,255,.06);}
+*::-webkit-scrollbar{width:10px;height:10px;}
+*::-webkit-scrollbar-track{background:rgba(255,255,255,.06);border-radius:999px;}
+*::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22);border-radius:999px;border:2px solid rgba(255,255,255,.06);}
+*::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.30);}
+/* Ensure panels can scroll horizontally when needed */
+.panel, .mappanel{overflow-x:auto;}
+/* Allow capability governance list to scroll horizontally if content exceeds width */
+#capGovList{overflow-x:auto;}
+/* Keep controls on one line so horizontal scroll appears instead of wrapping */
+.listitem > div:last-child{flex-wrap:nowrap;}
+
+
+/* Resizable admin split */
+.admin{--leftW: 360px;}
+.admin .panel.left{width:var(--leftW); min-width:260px; max-width:640px;}
+.admin .panel.right{flex:1; min-width:320px;}
+.resizer{
+  width:10px;
+  cursor:col-resize;
+  background:transparent;
+  position:relative;
+}
+.resizer:before{
+  content:"";
+  position:absolute;
+  top:0; bottom:0; left:4px;
+  width:2px;
+  background:rgba(255,255,255,.10);
+}
+.resizer:hover:before{background:rgba(255,255,255,.22);}
+body.resizing{cursor:col-resize; user-select:none;}
+
+
+/* Map visual polish */
+.mapwrap{background:
+  radial-gradient(1200px 700px at 60% 40%, rgba(255,255,255,.06), rgba(0,0,0,0) 60%),
+  radial-gradient(900px 600px at 30% 70%, rgba(255,255,255,.04), rgba(0,0,0,0) 60%),
+  linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,0) 40%);
+}
+.maplegend{
+  position:absolute;
+  right:14px;
+  top:14px;
+  background:rgba(0,0,0,.55);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:14px;
+  padding:10px 12px;
+  backdrop-filter: blur(10px);
+  max-width:260px;
+}
+.maplegend .t{font-weight:800;margin-bottom:6px;}
+.maplegend .row{display:flex;align-items:center;gap:8px;margin:6px 0;color:rgba(255,255,255,.82);font-size:12px;}
+.sw{width:14px;height:14px;border-radius:999px;border:1px solid rgba(255,255,255,.18);}
+.arr{
+  width:22px;height:0;border-top:2px solid rgba(255,255,255,.75);position:relative;
+}
+.arr:after{
+  content:""; position:absolute; right:-2px; top:-5px;
+  border-left:8px solid rgba(255,255,255,.75);
+  border-top:5px solid transparent;
+  border-bottom:5px solid transparent;
+}
+
+</style>
+</head>
+<body>
+
+<header>
+  <div><strong>Council Capability Platform v28</strong></div>
+  <div class="tabs">
+    <button id="mapTab" class="active" onclick="switchView('map')">Map</button>
+    <button id="adminTab" onclick="switchView('admin')">Admin</button>
+  </div>
+</header>
+
+<div id="adminView" class="view">
+  <div class="admin">
+    <div class="panel left">
+      <h3 style="margin-top:0">Members</h3>
+      <button onclick="addMember()">+ Add Member</button>
+      <div class="small">Click a member to edit details and capabilities.</div>
+      <div id="memberList" style="margin-top:10px"></div>
+      <hr/>
+      
+      <hr/>
+      <h3>Capabilities</h3>
+      <div class="small">Add, assign domains, or remove capabilities (with impact warnings).</div>
+
+      <div style="margin-top:10px">
+        <input id="capName" placeholder="New capability name (e.g., Outside Counsel Management)"/>
+        <select id="capDomain">
+          <option>Tech</option>
+          <option>Finance</option>
+          <option>Leadership</option>
+          <option>Org</option>
+          <option>Unassigned</option>
+        </select>
+        <button onclick="addCapability()">Add Capability</button>
+      </div>
+
+      <div style="margin-top:12px" id="capGovList"></div>
+
+      <h3>Data Controls</h3>
+      <button class="secondary" onclick="resetToSeed()">Restore Baseline Dataset</button>
+      <button class="secondary" onclick="exportData()">Export JSON</button>
+      <button class="secondary" onclick="downloadUpdatedSeedFile()">Publish New Baseline</button>
+      <input type="file" onchange="importData(event)"/>
+    </div>
+    <div class="resizer" id="adminResizer" title="Drag to resize"></div><div class="panel right">
+      <h3 style="margin-top:0">Member Editor</h3>
+      <div id="editor"></div>
+    </div>
+  </div>
+</div>
+
+<div id="mapView" class="view active">
+  <div class="maplayout">
+    <div class="mappanel">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div>
+          <div style="font-weight:750">Map Intelligence</div>
+          <div class="small">Search, filter, and see suggested connections.</div>
+        </div>
+        <button class="secondary" onclick="clearMapSelection()">Clear</button>
+      </div>
+
+      <div style="margin-top:12px">
+        <div class="small">Search member</div>
+        <input id="mapSearch" list="memberNames" placeholder="Type a name..." oninput="renderMapPanel()" />
+        <datalist id="memberNames"></datalist>
+      </div>
+
+      <div style="margin-top:10px">
+        <div class="small">Filter by capability</div>
+        <select id="capFilter" onchange="renderMapPanel()"></select>
+      </div>
+
+      <hr/>
+
+      <div id="mapSelected" class="card"></div>
+
+      <div style="margin-top:12px">
+        <div style="font-weight:650;margin-bottom:6px">Suggested connections</div>
+        <div class="small">Based on Can ∩ Need overlap.</div>
+      </div>
+
+      <div style="margin-top:10px">
+        <div class="small" style="font-weight:650">Who can help them</div>
+        <div id="suggestHelpers"></div>
+      </div>
+
+      <div style="margin-top:12px">
+        <div class="small" style="font-weight:650">Who they can help</div>
+        <div id="suggestSeekers"></div>
+      </div>
+    </div>
+
+    <div class="mapwrap">
+      <canvas id="mapCanvas"></canvas>
+      <div id="tip" class="tooltip"></div>
+      <div class="maplegend">
+        <div class="row" style="justify-content:space-between;margin-bottom:8px;">
+          <span style="font-weight:700;font-size:12px;opacity:.8;">Zoom</span>
+          <span id="zoomIndicator" style="font-weight:800;">100%</span>
+        </div>
+        <div class="t">How to read</div>
+        <div class="row"><span class="arr"></span><span>Help flows in arrow direction</span></div>
+        <div class="row"><span class="sw" style="background:rgba(255,255,255,.75)"></span><span>Unselected: subtle overview</span></div>
+        <div class="row"><span class="sw" style="background:rgba(255,255,255,.22)"></span><span>Click a node to focus</span></div>
+        <div class="row"><span class="sw" style="background:rgba(255,255,255,.10)"></span><span>Drag nodes to adjust layout</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+const STORAGE_KEY="council_platform_v31";
+const SEED_DATA={"members": [{"id": "karissa_boley", "first_name": "Karissa", "last_name": "Boley", "company": "Baker Hughes", "title": "Director, Legal Operations", "color": "hsl(0.000,65%,55%)", "can": ["Rate_Benchmarking"], "need": ["AI", "CLM", "Change_Management", "Legal_Tech", "Org_Design", "People_Leadership"]}, {"id": "walt_cain", "first_name": "Walt", "last_name": "Cain", "company": "Freddie Mac", "title": "Senior Director of Legal Operations", "color": "hsl(137.508,65%,55%)", "can": ["Org_Design", "Strategy"], "need": ["Change_Management"]}, {"id": "dan_coll", "first_name": "Dan", "last_name": "Coll", "company": "Jabil", "title": "Senior Associate General Counsel, Legal Operations", "color": "hsl(275.016,65%,55%)", "can": ["AI", "Financial_Management", "Legal_Tech", "People_Leadership", "Rate_Benchmarking", "Storytelling"], "need": ["Benchmarking", "Change_Management", "GC_Relationship", "Org_Design", "Vendor_Management"]}, {"id": "angelina_colombo", "first_name": "Angelina", "last_name": "Colombo", "company": "Guardian Life Insurance", "title": "Head of Law Department Strategy, Operations & Technology", "color": "hsl(52.524,65%,55%)", "can": ["Financial_Management", "GC_Relationship", "Legal_Tech", "Org_Design", "People_Leadership", "Risk_Compliance", "Strategy"], "need": ["AI"]}, {"id": "brett_durand", "first_name": "Brett", "last_name": "Durand", "company": "Sempra", "title": "Head of Legal Operations", "color": "hsl(190.032,65%,55%)", "can": ["AI", "Financial_Forecasting", "Financial_Management", "GC_Relationship", "Legal_Tech", "Metrics", "Outside_Counsel", "People_Leadership"], "need": ["Change_Management"]}, {"id": "latonya_ellis", "first_name": "LaTonya", "last_name": "Ellis", "company": "Wells Fargo", "title": "Assistant General Counsel, Vice President- Outside Counsel and Third Party Risk Mgmt.", "color": "hsl(327.540,65%,55%)", "can": ["Outside_Counsel_Management", "Financial_Management", "Risk_Compliance", "Org_Design", "Executive_Stakeholder_Navigation"], "need": ["GC_Relationship", "People_Leadership"]}, {"id": "mary_burrelle_gardner", "first_name": "Mary Burrelle", "last_name": "Gardner", "company": "Stryker", "title": "Director - Legal Technology Innovation", "color": "hsl(105.048,65%,55%)", "can": ["Rate_Benchmarking"], "need": ["AI", "Change_Management", "Org_Design", "People_Leadership", "Storytelling", "Strategy"]}, {"id": "maureen_glennon", "first_name": "Maureen", "last_name": "Glennon", "company": "Chevron", "title": "Senior Manager, Legal Operations & Services", "color": "hsl(242.556,65%,55%)", "can": ["Change_Management", "Financial_Management", "GC_Relationship", "Org_Design"], "need": ["AI", "Knowledge_Management", "Legal_Tech", "Outside_Counsel", "People_Leadership", "Storytelling", "Strategy"]}, {"id": "rozenn_heathcote", "first_name": "Rozenn", "last_name": "Heathcote", "company": "JLL", "title": "", "color": "hsl(20.064,65%,55%)", "can": ["AI", "Outside_Counsel_Management", "Financial_Management", "Financial_Forecasting"], "need": ["AI", "Org_Design", "Executive_Coaching", "Strategy"]}, {"id": "charandeep_kaur", "first_name": "Charandeep", "last_name": "Kaur", "company": "Uber", "title": "", "color": "hsl(157.572,65%,55%)", "can": [], "need": []}, {"id": "lisa_kremer_brown", "first_name": "Lisa", "last_name": "Kremer Brown", "company": "Starbucks", "title": "", "color": "hsl(295.080,65%,55%)", "can": ["Financial_Management", "Portfolio_Management", "Change_Management"], "need": ["AI", "People_Leadership", "Strategy"]}, {"id": "shailesh_mathankar", "first_name": "Shailesh", "last_name": "Mathankar", "company": "Bristol-Myers Squibb", "title": "Head of Legal Technology and Operations", "color": "hsl(72.588,65%,55%)", "can": ["Rate_Benchmarking"], "need": ["AI", "Change_Management", "GC_Relationship", "People_Leadership", "Storytelling"]}, {"id": "aisleigh_mc_gann", "first_name": "Aisleigh", "last_name": "Mc Gann", "company": "AON", "title": "Head of Global Law and Compliance Operations", "color": "hsl(210.096,65%,55%)", "can": ["Technology_Implementation", "Strategy", "Org_Design"], "need": ["AI", "CLM", "Org_Design", "Data_and_Reporting", "Technology_Implementation", "People_Leadership"]}, {"id": "derek_mogck", "first_name": "Derek", "last_name": "Mogck", "company": "Munich Re", "title": "Head of Legal Operations", "color": "hsl(347.604,65%,55%)", "can": ["Strategy"], "need": ["AI", "CLM", "Financial_Management", "GC_Relationship", "Knowledge_Management", "Legal_Tech", "Org_Design", "People_Leadership", "Rate_Benchmarking", "Storytelling"]}, {"id": "eric_paul", "first_name": "Eric", "last_name": "Paul", "company": "AT&T", "title": "Director - Legal Technology Innovation", "color": "hsl(125.112,65%,55%)", "can": ["AI", "E_Billing", "Matter_Management"], "need": ["Benchmarking", "Change_Management", "Financial_Management", "GC_Relationship", "Legal_Tech", "Org_Design", "People_Leadership", "Rate_Benchmarking", "Storytelling", "Strategy", "Vendor_Management"]}, {"id": "amanda_sharpe", "first_name": "Amanda", "last_name": "Sharpe", "company": "", "title": "Sr. Director of Legal Technology and Operations", "color": "hsl(262.620,65%,55%)", "can": ["Change_Management", "People_Leadership", "Strategy"], "need": ["AI", "Change_Management", "Benchmarking"]}, {"id": "emily_teuben", "first_name": "Emily", "last_name": "Teuben", "company": "PayPal Holdings", "title": "Sr Director, Legal Services and Operations", "color": "hsl(40.128,65%,55%)", "can": ["AI", "CLM", "Change_Management", "E_Billing", "Legal_Tech", "Matter_Management", "Org_Design", "Storytelling", "Training_Enablement"], "need": ["Benchmarking", "Financial_Management", "GC_Relationship", "People_Leadership", "Strategy"]}, {"id": "jessica_vander_ploeg", "first_name": "Jessica", "last_name": "Vander Ploeg", "company": "Belron", "title": "VP of Legal Operations", "color": "hsl(177.636,65%,55%)", "can": ["AI", "Change_Management", "Legal_Tech", "Org_Design", "People_Leadership", "Risk_Compliance", "Strategy", "Training_Enablement", "Vendor_Management"], "need": ["Benchmarking", "Storytelling"]}, {"id": "drew_ward", "first_name": "Drew", "last_name": "Ward", "company": "Exxon", "title": "", "color": "hsl(315.144,65%,55%)", "can": ["Change_Management", "E_Billing", "Financial_Management", "GC_Relationship", "Legal_Tech", "Matter_Management", "Outside_Counsel", "Rate_Benchmarking", "Vendor_Management"], "need": ["People_Leadership"]}], "capabilities": [{"id": "AI", "name": "AI", "domain": "Unassigned"}, {"id": "Benchmarking", "name": "Benchmarking", "domain": "Unassigned"}, {"id": "CLM", "name": "CLM", "domain": "Unassigned"}, {"id": "Change_Management", "name": "Change Management", "domain": "Unassigned"}, {"id": "Data_and_Reporting", "name": "Data and Reporting", "domain": "Unassigned"}, {"id": "E_Billing", "name": "E Billing", "domain": "Unassigned"}, {"id": "Executive_Coaching", "name": "Executive Coaching", "domain": "Unassigned"}, {"id": "Executive_Stakeholder_Navigation", "name": "Executive Stakeholder Navigation", "domain": "Unassigned"}, {"id": "Financial_Forecasting", "name": "Financial Forecasting", "domain": "Unassigned"}, {"id": "Financial_Management", "name": "Financial Management", "domain": "Unassigned"}, {"id": "GC_Relationship", "name": "GC Relationship", "domain": "Unassigned"}, {"id": "Knowledge_Management", "name": "Knowledge Management", "domain": "Unassigned"}, {"id": "Legal_Tech", "name": "Legal Tech", "domain": "Unassigned"}, {"id": "Matter_Management", "name": "Matter Management", "domain": "Unassigned"}, {"id": "Metrics", "name": "Metrics", "domain": "Unassigned"}, {"id": "Org_Design", "name": "Org Design", "domain": "Unassigned"}, {"id": "Outside_Counsel", "name": "Outside Counsel", "domain": "Unassigned"}, {"id": "Outside_Counsel_Management", "name": "Outside Counsel Management", "domain": "Unassigned"}, {"id": "People_Leadership", "name": "People Leadership", "domain": "Unassigned"}, {"id": "Portfolio_Management", "name": "Portfolio Management", "domain": "Unassigned"}, {"id": "Rate_Benchmarking", "name": "Rate Benchmarking", "domain": "Unassigned"}, {"id": "Risk_Compliance", "name": "Risk Compliance", "domain": "Unassigned"}, {"id": "Storytelling", "name": "Storytelling", "domain": "Unassigned"}, {"id": "Strategy", "name": "Strategy", "domain": "Unassigned"}, {"id": "Technology_Implementation", "name": "Technology Implementation", "domain": "Unassigned"}, {"id": "Training_Enablement", "name": "Training Enablement", "domain": "Unassigned"}, {"id": "Vendor_Management", "name": "Vendor Management", "domain": "Unassigned"}]};
+const TITLE_LOOKUP = {"Eric Paul": {"title": "Director - Legal Technology Innovation", "company": "AT&T"}, "Karissa Boley": {"title": "Director, Legal Operations", "company": "Baker Hughes"}, "Jessica Vander Ploeg": {"title": "VP of Legal Operations", "company": "Belron"}, "Shailesh Mathankar": {"title": "Head of Legal Technology and Operations", "company": "Bristol-Myers Squibb"}, "Maureen Glennon": {"title": "Senior Manager, Legal Operations & Services", "company": "Chevron"}, "Drew Ward": {"title": "", "company": "Exxon"}, "Walt Cain": {"title": "Senior Director of Legal Operations", "company": "Freddie Mac"}, "Angelina Colombo": {"title": "Head of Law Department Strategy, Operations & Technology", "company": "Guardian Life Insurance"}, "Dan Coll": {"title": "Senior Associate General Counsel, Legal Operations", "company": "Jabil"}, "Derek Mogck": {"title": "Head of Legal Operations", "company": "Munich Re"}, "Emily Teuben": {"title": "Sr Director, Legal Services and Operations", "company": "PayPal Holdings"}, "Brett Durand": {"title": "Head of Legal Operations", "company": "Sempra"}, "Mary Burrelle Gardner": {"title": "Director - Legal Technology Innovation", "company": "Stryker"}, "LaTonya Ellis": {"title": "Assistant General Counsel, Vice President- Outside Counsel and Third Party Risk Mgmt.", "company": "Wells Fargo"}, "Amanda Sharpe": {"title": "Sr. Director of Legal Technology and Operations", "company": ""}, "Lisa Kremer Brown": {"title": "", "company": "Starbucks"}, "Aisleigh Mc Gann": {"title": "Head of Global Law and Compliance Operations", "company": "AON"}, "Rozenn Heathcote": {"title": "", "company": "JLL"}, "Charandeep Kaur": {"title": "", "company": "Uber"}};
+
+let data;
+let selectedId=null;
+
+// Map interaction state
+let mapSelectedId=null;
+let mapHoveredId=null;
+
+function init(){
+  const stored=localStorage.getItem(STORAGE_KEY);
+  if(stored){
+    try{
+      data=JSON.parse(stored);
+    }catch(e){
+      data=null;
+    }
+  }
+  // validate stored payload; if missing or empty, fall back to embedded baseline
+  if(!data || !data.members || !Array.isArray(data.members) || data.members.length===0){
+    data=SEED_DATA;
+    save();
+  }
+applyDomainInference();
+  save();
+// migration: populate missing titles/companies from embedded Excel lookup
+  (data.members||[]).forEach(m=>{
+    const key = memberDisplayName(m);
+    const rec = TITLE_LOOKUP[key];
+    if(rec){
+      if(!m.title && rec.title) m.title = rec.title;
+      if(!m.company && rec.company) m.company = rec.company;
+    }
+  });
+  save();
+// default select first member
+  if(data.members.length) selectedId = data.members[0].id;
+  renderAdmin();
+  // default to Map view
+  switchView('map');
+}
+
+let __dirty = false;
+function save(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  __dirty = true;
+}
+
+let __pendingReset = false;
+function resetToSeed(){
+  __pendingReset = true;
+  openResetModal();
+}
+
+function openResetModal(){
+  const b = document.getElementById("resetModalBackdrop");
+  if(!b) return;
+  b.style.display="flex";
+}
+
+function closeResetModal(){
+  const b = document.getElementById("resetModalBackdrop");
+  if(!b) return;
+  b.style.display="none";
+  __pendingReset = false;
+}
+
+function confirmResetToSeed(){
+  if(!__pendingReset) return;
+  data=SEED_DATA;
+  if(data.members.length) selectedId = data.members[0].id;
+  applyDomainInference();
+  save();
+  // also clear map state so layout matches new roster
+  try{ localStorage.removeItem(STORAGE_KEY + "_map_state"); }catch(e){}
+  closeResetModal();
+  renderAdmin();
+}
+
+
+function downloadUpdatedSeedFile(){
+  // Create a new HTML file identical to this one, but with SEED_DATA replaced by current data
+  try{
+    const current = JSON.parse(JSON.stringify(data)); // deep clone
+    // mark all domains as-is; preserve domain_source flags
+    const seedJson = JSON.stringify(current);
+    let doc = document.documentElement.outerHTML;
+
+    // Replace SEED_DATA assignment
+    doc = doc.replace(/const SEED_DATA=([\s\S]*?);\n/, "const SEED_DATA=" + seedJson + ";\n");
+
+    // Bump STORAGE_KEY so the new file doesn't collide with older localStorage unless user wants it
+    doc = doc.replace(/const STORAGE_KEY="[^"]+";/, 'const STORAGE_KEY="council_platform_seed_' + Date.now() + '";');
+
+    const blob = new Blob(["<!doctype html>\\n"+doc], {type:"text/html"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "Council_Capability_Platform_baseline_" + new Date().toISOString().slice(0,10) + ".html";
+    a.click();
+    __dirty = false;
+  }catch(e){
+    alert("Could not generate updated seed file: " + e);
+  }
+}
+
+function exportData(){
+  const blob=new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="council_data.json";
+  a.click();
+}
+
+function importData(e){
+  const file=e.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=(evt)=>{
+    data=JSON.parse(evt.target.result);
+    if(data.members && data.members.length) selectedId=data.members[0].id; else selectedId=null;
+    applyDomainInference();
+    save();
+    renderAdmin();
+  };
+  reader.readAsText(file);
+}
+
+function switchView(v){
+  document.getElementById("adminView").classList.remove("active");
+  document.getElementById("mapView").classList.remove("active");
+  document.getElementById("adminTab").classList.remove("active");
+  document.getElementById("mapTab").classList.remove("active");
+  if(v==="admin"){
+    document.getElementById("adminView").classList.add("active");
+    document.getElementById("adminTab").classList.add("active");
+  } else {
+    document.getElementById("mapView").classList.add("active");
+    document.getElementById("mapTab").classList.add("active");
+    renderMap();
+    renderMapPanel();
+  }
+}
+
+function generateColor(index){
+  const hue=(index*137.508)%360;
+  return "hsl("+hue+",65%,55%)";
+}
+
+function memberDisplayName(m){
+  const n=(m.first_name||"").trim()+" "+(m.last_name||"").trim();
+  return n.trim() || "(Unnamed)";
+}
+
+function addMember(){
+  const m={id:"m"+Date.now(), first_name:"", last_name:"", company:"", title:"", color:generateColor(data.members.length), can:[], need:[]};
+  data.members.push(m);
+  selectedId=m.id;
+  save();
+  renderAdmin();
+}
+
+function deleteMember(){
+  if(!selectedId) return;
+  data.members = data.members.filter(m=>m.id!==selectedId);
+  selectedId = data.members.length ? data.members[0].id : null;
+  save();
+  renderAdmin();
+}
+
+function renderAdmin(){
+  renderMemberList();
+  renderCapGov();
+  renderEditor();
+}
+
+function renderMemberList(){
+  const list=document.getElementById("memberList");
+  list.innerHTML="";
+  data.members
+    .slice()
+    .sort((a,b)=>memberDisplayName(a).localeCompare(memberDisplayName(b)))
+    .forEach(m=>{
+      const div=document.createElement("div");
+      div.className="member-item";
+      const left=document.createElement("div");
+      left.textContent=memberDisplayName(m);
+      left.style.color=m.color;
+      const right=document.createElement("div");
+      right.className="badge";
+      right.textContent = (m.can?.length||0) + " can / " + (m.need?.length||0) + " need";
+      div.appendChild(left);
+      div.appendChild(right);
+      div.onclick=()=>{selectedId=m.id;renderEditor();};
+      list.appendChild(div);
+    });
+}
+
+function domainsInOrder(){
+  const preferred=["Tech","Finance","Leadership","Org","Unassigned"];
+  const set=new Set(data.capabilities.map(c=>c.domain||"Unassigned"));
+  const present=[...set];
+  present.sort((a,b)=>{
+    const ia=preferred.indexOf(a), ib=preferred.indexOf(b);
+    if(ia===-1 && ib===-1) return a.localeCompare(b);
+    if(ia===-1) return 1;
+    if(ib===-1) return -1;
+    return ia-ib;
+  });
+  return present;
+}
+
+function renderEditor(){
+  const editor=document.getElementById("editor");
+  const m=data.members.find(x=>x.id===selectedId);
+  if(!m){
+    editor.innerHTML="<em>Select or add a member</em>";
+    return;
+  }
+
+  let html="";
+  html += `<div class="small">Editing: <span style="color:${m.color};font-weight:700">${memberDisplayName(m)}</span></div>`;
+  html += `<input id="fn" placeholder="First Name" value="${m.first_name||""}"/>`;
+  html += `<input id="ln" placeholder="Last Name" value="${m.last_name||""}"/>`;
+  html += `<input id="co" placeholder="Company" value="${m.company||""}"/>`;
+  html += `<input id="ti" placeholder="Title" value="${m.title||""}"/>`;
+  html += `<div class="small">Color (auto): <span style="color:${m.color}">${m.color}</span></div>`;
+
+  const domains=domainsInOrder();
+
+  html += `<hr/><h4 style="margin:0 0 8px 0">Can Help</h4>`;
+  domains.forEach(d=>{
+    const caps=data.capabilities.filter(c=>(c.domain||"Unassigned")===d).slice().sort((a,b)=>a.name.localeCompare(b.name));
+    if(!caps.length) return;
+    html += `<div class="domain-group"><div class="domain-title">${d}</div>`;
+    caps.forEach(c=>{
+      const checked = (m.can||[]).includes(c.id) ? "checked" : "";
+      html += `<label class="chk"><input type="checkbox" ${checked} onchange="toggleCap('${c.id}','can')"/><span>${c.name}</span></label>`;
+    });
+    html += `</div>`;
+  });
+
+  html += `<hr/><h4 style="margin:0 0 8px 0">Need Help</h4>`;
+  domains.forEach(d=>{
+    const caps=data.capabilities.filter(c=>(c.domain||"Unassigned")===d).slice().sort((a,b)=>a.name.localeCompare(b.name));
+    if(!caps.length) return;
+    html += `<div class="domain-group"><div class="domain-title">${d}</div>`;
+    caps.forEach(c=>{
+      const checked = (m.need||[]).includes(c.id) ? "checked" : "";
+      html += `<label class="chk"><input type="checkbox" ${checked} onchange="toggleCap('${c.id}','need')"/><span>${c.name}</span></label>`;
+    });
+    html += `</div>`;
+  });
+
+  html += `<hr/>`;
+  html += `<button onclick="saveMember()">Save</button> `;
+  html += `<button class="secondary" onclick="deleteMember()">Delete Member</button>`;
+
+  editor.innerHTML=html;
+}
+
+function toggleCap(capId, type){
+  const m=data.members.find(x=>x.id===selectedId);
+  if(!m) return;
+  m[type] = m[type] || [];
+  if(m[type].includes(capId)){
+    m[type] = m[type].filter(x=>x!==capId);
+  } else {
+    m[type].push(capId);
+  }
+}
+
+function saveMember(){
+  const m=data.members.find(x=>x.id===selectedId);
+  if(!m) return;
+  m.first_name=document.getElementById("fn").value;
+  m.last_name=document.getElementById("ln").value;
+  m.company=document.getElementById("co").value;
+  m.title=document.getElementById("ti").value;
+  save();
+  renderAdmin();
+}
+
+
+
+
+// -------- DOMAIN INFERENCE (transparent rules) --------
+const __DOMAIN_RULES__ = {
+  Tech: ["ai","clm","matter","e_billing","billing","automation","workflow","analytics","dashboard","data","technology","system","systems","integration","digital"],
+  Finance: ["financial","forecast","budget","budgeting","spend","outside_counsel","vendor","rate","cost","savings","fee","pricing","ebilling","e_billing"],
+  Leadership: ["change","executive","stakeholder","presence","influence","communication","alignment","strategy","transformation","culture","leadership"],
+  Org: ["org","organization","design","structure","governance","risk","compliance","regulatory","operating_model","operating","model"]
+};
+
+function inferDomainForCapability(cap){
+  const id = (cap.id||"").toLowerCase();
+  const name = (cap.name||"").toLowerCase();
+  const hay = id + " " + name;
+
+  const matches = (domain)=>__DOMAIN_RULES__[domain].some(k=>hay.includes(k));
+  if(matches("Tech")) return "Tech";
+  if(matches("Finance")) return "Finance";
+  if(matches("Leadership")) return "Leadership";
+  if(matches("Org")) return "Org";
+  return "Unassigned";
+}
+
+// apply inference only when domain is missing/unassigned; manual overrides always win
+function applyDomainInference(){
+  (data.capabilities||[]).forEach(c=>{
+    if(!c.domain || c.domain==="Unassigned"){
+      const inferred = inferDomainForCapability(c);
+      if(inferred && inferred!=="Unassigned"){
+        c.domain = inferred;
+        c.domain_source = "auto";
+      } else {
+        c.domain = c.domain || "Unassigned";
+        c.domain_source = c.domain_source || "unassigned";
+      }
+    } else {
+      c.domain_source = c.domain_source || "manual";
+    }
+  });
+}
+
+// -------- CAPABILITY GOVERNANCE (admin-only) --------
+function normCapId(name){
+  return (name||"").trim().replace(/\s+/g,"_");
+}
+
+function addCapability(){
+  const nameEl=document.getElementById("capName");
+  const domEl=document.getElementById("capDomain");
+  if(!nameEl || !domEl) return;
+  const name=(nameEl.value||"").trim();
+  if(!name) return;
+  const id=normCapId(name);
+  if((data.capabilities||[]).some(c=>c.id===id)){
+    alert("Capability already exists.");
+    return;
+  }
+  const picked = domEl.value || "Unassigned";
+  const cap = {id, name, domain: picked};
+  if(picked==="Unassigned"){
+    const inferred = inferDomainForCapability(cap);
+    if(inferred!=="Unassigned"){
+      cap.domain = inferred;
+      cap.domain_source = "auto";
+    } else {
+      cap.domain_source = "unassigned";
+    }
+  } else {
+    cap.domain_source = "manual";
+  }
+  data.capabilities.push(cap);
+  nameEl.value="";
+  save();
+  renderAdmin();
+}
+
+function updateCapabilityDomain(id, domain){
+  const c=(data.capabilities||[]).find(x=>x.id===id);
+  if(!c) return;
+  c.domain = domain || "Unassigned";
+  c.domain_source = "manual";
+  save();
+  renderAdmin();
+}
+
+function capabilityImpactCount(id){
+  let count=0;
+  (data.members||[]).forEach(m=>{
+    if((m.can||[]).includes(id) || (m.need||[]).includes(id)) count++;
+  });
+  return count;
+}
+
+
+let __pendingCapDeleteId = null;
+
+function impactedMembersForCap(id){
+  const impacted=[];
+  (data.members||[]).forEach(m=>{
+    if((m.can||[]).includes(id) || (m.need||[]).includes(id)) impacted.push(m);
+  });
+  impacted.sort((a,b)=>memberDisplayName(a).localeCompare(memberDisplayName(b)));
+  return impacted;
+}
+
+function openCapDeleteModal(id){
+  const c=(data.capabilities||[]).find(x=>x.id===id);
+  if(!c) return;
+  __pendingCapDeleteId = id;
+
+  const impacted = impactedMembersForCap(id);
+  const backdrop = document.getElementById("capModalBackdrop");
+  const title = document.getElementById("capModalTitle");
+  const subtitle = document.getElementById("capModalSubtitle");
+  const note = document.getElementById("capModalImpactNote");
+  const list = document.getElementById("capModalImpactList");
+  const btn = document.getElementById("capModalDeleteBtn");
+
+  title.textContent = `Delete capability: ${c.name}`;
+  subtitle.textContent = `This will remove it from all member profiles (Can/Need).`;
+
+  if(impacted.length){
+    note.textContent = `${impacted.length} member(s) will be updated.`;
+    list.innerHTML = impacted.map(m=>`
+      <div class="listitem" style="cursor:default">
+        <div class="li-left">
+          <span class="dot" style="background:${m.color}"></span>
+          <div class="li-name">${memberDisplayName(m)}</div>
+        </div>
+        <div class="count">${((m.can||[]).includes(id) ? "Can" : "")}${(((m.can||[]).includes(id) && (m.need||[]).includes(id)) ? " & " : "")}${((m.need||[]).includes(id) ? "Need" : "")}</div>
+      </div>
+    `).join("");
+  } else {
+    note.textContent = "No members currently use this capability.";
+    list.innerHTML = `<div class="small">Safe to delete.</div>`;
+  }
+
+  btn.textContent = impacted.length ? "Delete & Update Members" : "Delete";
+  backdrop.style.display = "flex";
+}
+
+function closeCapModal(){
+  const backdrop = document.getElementById("capModalBackdrop");
+  backdrop.style.display = "none";
+  __pendingCapDeleteId = null;
+}
+
+function confirmDeleteCapability(){
+  const id = __pendingCapDeleteId;
+  if(!id) return;
+  const c=(data.capabilities||[]).find(x=>x.id===id);
+  if(!c) { closeCapModal(); return; }
+
+  // remove from registry
+  data.capabilities = (data.capabilities||[]).filter(x=>x.id!==id);
+  // remove from members
+  (data.members||[]).forEach(m=>{
+    m.can = (m.can||[]).filter(x=>x!==id);
+    m.need = (m.need||[]).filter(x=>x!==id);
+  });
+
+  save();
+  closeCapModal();
+  renderAdmin();
+}
+
+function renderCapGov(){
+  const box=document.getElementById("capGovList");
+  if(!box) return;
+
+  const domainOptions = ["Tech","Finance","Leadership","Org","Unassigned"];
+
+  // group capabilities by domain
+  const groups = {};
+  (data.capabilities||[]).forEach(c=>{
+    const d=(c.domain||"Unassigned");
+    if(!groups[d]) groups[d]=[];
+    groups[d].push(c);
+  });
+
+  // stable order of groups
+  const order = ["Tech","Finance","Leadership","Org","Unassigned"];
+  const domains = order.filter(d=>groups[d] && groups[d].length).concat(
+    Object.keys(groups).filter(d=>!order.includes(d)).sort()
+  );
+
+  function capRow(c){
+    const impacted = capabilityImpactCount(c.id);
+    const autoBadge = (c.domain_source==="auto") ? `<div class="count" title="Domain inferred automatically">Auto</div>` : ``;
+    const moveOpts = domainOptions.map(d=>`<option ${((c.domain||"Unassigned")==d)?"selected":""}>${d}</option>`).join("");
+    return `
+      <div class="listitem" style="cursor:default">
+        <div class="li-left" style="min-width:0">
+          <div class="li-name" title="${c.name||c.id}">${c.name||c.id}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <select style="width:140px" onchange="updateCapabilityDomain('${c.id}', this.value)">${moveOpts}</select>
+          ${autoBadge}
+          <div class="count" title="Members impacted">${impacted}</div>
+          <button class="secondary" onclick="openCapDeleteModal('${c.id}')" style="padding:6px 8px">Delete</button>
+        </div>
+      </div>
+    `;
+  }
+
+  // render grouped
+  box.innerHTML = domains.map(d=>{
+    const caps = groups[d].slice().sort((a,b)=>(a.name||a.id).localeCompare(b.name||b.id));
+    const totalImpacted = caps.reduce((acc,c)=>acc + capabilityImpactCount(c.id), 0);
+    return `
+      <div class="domain-group" style="margin-top:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+          <div class="domain-title" style="margin:0">${d}</div>
+          <div class="small">${caps.length} capabilities • ${totalImpacted} total impacts</div>
+        </div>
+        <div style="margin-top:8px">${caps.map(capRow).join("")}</div>
+      </div>
+    `;
+  }).join("") || `<div class="small">No capabilities yet.</div>`;
+}
+
+// -------- MAP PANEL (intelligence layer) --------
+function clearMapSelection(){
+  mapSelectedId = null;
+  renderMapPanel();
+}
+
+function getCapFilterValue(){
+  const el = document.getElementById("capFilter");
+  return el ? el.value : "__all__";
+}
+
+function getSearchValue(){
+  const el = document.getElementById("mapSearch");
+  return el ? (el.value||"").toLowerCase().trim() : "";
+}
+
+function buildCapFilterOptions(){
+  const el = document.getElementById("capFilter");
+  if(!el) return;
+  const current = el.value || "__all__";
+  const caps = (data.capabilities||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
+  el.innerHTML = "";
+  const optAll = document.createElement("option");
+  optAll.value="__all__";
+  optAll.textContent="All capabilities";
+  el.appendChild(optAll);
+  caps.forEach(c=>{
+    const o=document.createElement("option");
+    o.value=c.id;
+    o.textContent=c.name + " (" + (c.domain||"Unassigned") + ")";
+    el.appendChild(o);
+  });
+  el.value = current && [...el.options].some(o=>o.value===current) ? current : "__all__";
+}
+
+function renderMapPanel(){
+  // Safe if map panel not mounted (e.g., in Admin view)
+  const selBox = document.getElementById("mapSelected");
+  const helpersBox = document.getElementById("suggestHelpers");
+  const seekersBox = document.getElementById("suggestSeekers");
+  if(!selBox || !helpersBox || !seekersBox) return;
+
+  buildCapFilterOptions();
+
+  // populate autocomplete datalist
+  const dl = document.getElementById("memberNames");
+  if(dl){
+    dl.innerHTML = "";
+    data.members
+      .slice()
+      .sort((a,b)=>memberDisplayName(a).localeCompare(memberDisplayName(b)))
+      .forEach(m=>{
+        const opt=document.createElement("option");
+        opt.value = memberDisplayName(m);
+        dl.appendChild(opt);
+      });
+  }
+
+  const capFilter = getCapFilterValue();
+  const q = getSearchValue();
+
+  // If nothing selected, show quick member list (filtered) in the selected box
+  const selected = data.members.find(m=>m.id===mapSelectedId);
+
+  if(!selected){
+    const members = data.members
+      .slice()
+      .sort((a,b)=>memberDisplayName(a).localeCompare(memberDisplayName(b)))
+      .filter(m=> !q || memberDisplayName(m).toLowerCase().includes(q));
+
+    selBox.innerHTML = `
+      <div style="font-weight:700;margin-bottom:6px">Select a member</div>
+      <div class="small">Click a node in the map or choose from this list.</div>
+      <div style="margin-top:10px">
+        ${members.map(m=>`
+          <div class="listitem" onclick="selectFromPanel('${m.id}')">
+            <div class="li-left">
+              <span class="dot" style="background:${m.color}"></span>
+              <div class="li-name">${memberDisplayName(m)}</div>
+            </div>
+            <div class="count">${(m.can||[]).length}/${(m.need||[]).length}</div>
+          </div>
+        `).join("")}
+      </div>
+    `;
+    helpersBox.innerHTML = `<div class="small">—</div>`;
+    seekersBox.innerHTML = `<div class="small">—</div>`;
+    return;
+  }
+
+  const can = new Set(selected.can||[]);
+  const need = new Set(selected.need||[]);
+
+  const capName = (id)=>{
+    const c = (data.capabilities||[]).find(x=>x.id===id);
+    return c ? c.name : id;
+  };
+
+  const canList = [...can].map(capName).slice().sort().join(", ") || "—";
+  const needList = [...need].map(capName).slice().sort().join(", ") || "—";
+
+  selBox.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+      <div>
+        <div style="font-weight:800;color:${selected.color}">${memberDisplayName(selected)}</div>
+        <div class="small">${[selected.company, selected.title].filter(Boolean).join(" • ")}</div>
+      </div>
+      <div class="count">Can ${(selected.can||[]).length} • Need ${(selected.need||[]).length}</div>
+    </div>
+    <div style="margin-top:10px">
+      <div class="small" style="font-weight:650">Can help</div>
+      <div class="small">${canList}</div>
+    </div>
+    <div style="margin-top:10px">
+      <div class="small" style="font-weight:650">Needs help</div>
+      <div class="small">${needList}</div>
+    </div>
+  `;
+
+  // Suggestions: helpers for selected (others whose can intersects selected.need)
+  const helpers = data.members
+    .filter(m=>m.id!==selected.id)
+    .map(m=>{
+      const inter = (m.can||[]).filter(c=>need.has(c));
+      const filtered = capFilter==="__all__" ? inter : inter.filter(c=>c===capFilter);
+      return {m, inter: filtered, score: filtered.length};
+    })
+    .filter(x=>x.score>0)
+    .sort((a,b)=>b.score-a.score || memberDisplayName(a.m).localeCompare(memberDisplayName(b.m)))
+    .slice(0, 12);
+
+  helpersBox.innerHTML = helpers.length ? helpers.map(x=>`
+    <div class="listitem" onclick="selectFromPanel('${x.m.id}')">
+      <div class="li-left">
+        <span class="dot" style="background:${x.m.color}"></span>
+        <div class="li-name">${memberDisplayName(x.m)}</div>
+      </div>
+      <div class="count">${x.score}</div>
+    </div>
+    <div class="small" style="margin:-2px 0 8px 2px">${x.inter.map(capName).join(", ")}</div>
+  `).join("") : `<div class="small">No matches yet.</div>`;
+
+  // Suggestions: seekers they can help (others whose need intersects selected.can)
+  const seekers = data.members
+    .filter(m=>m.id!==selected.id)
+    .map(m=>{
+      const inter = (m.need||[]).filter(c=>can.has(c));
+      const filtered = capFilter==="__all__" ? inter : inter.filter(c=>c===capFilter);
+      return {m, inter: filtered, score: filtered.length};
+    })
+    .filter(x=>x.score>0)
+    .sort((a,b)=>b.score-a.score || memberDisplayName(a.m).localeCompare(memberDisplayName(b.m)))
+    .slice(0, 12);
+
+  seekersBox.innerHTML = seekers.length ? seekers.map(x=>`
+    <div class="listitem" onclick="selectFromPanel('${x.m.id}')">
+      <div class="li-left">
+        <span class="dot" style="background:${x.m.color}"></span>
+        <div class="li-name">${memberDisplayName(x.m)}</div>
+      </div>
+      <div class="count">${x.score}</div>
+    </div>
+    <div class="small" style="margin:-2px 0 8px 2px">${x.inter.map(capName).join(", ")}</div>
+  `).join("") : `<div class="small">No matches yet.</div>`;
+}
+
+function selectFromPanel(id){
+  mapSelectedId = id;
+  renderMapPanel();
+  // Nudge redraw if map is visible
+  if(document.getElementById("mapView").classList.contains("active")){
+    if(window.__councilMapRedraw) window.__councilMapRedraw();
+  }
+}
+
+// -------- MAP (labels + hover + selection highlight) --------
+function renderMap(){
+  const canvas=document.getElementById("mapCanvas");
+  const tip=document.getElementById("tip");
+  const ctx=canvas.getContext("2d");
+
+  const MAP_STATE_KEY = STORAGE_KEY + "_map_state";
+
+  // Zoom / pan state (screen transform)
+  let mapScale = 1;
+  let mapOffsetX = 0;
+  let mapOffsetY = 0;
+
+  function hashToAngle(str){
+    let h=2166136261;
+    for(let i=0;i<str.length;i++){
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    const u = (h >>> 0) / 4294967296;
+    return u * Math.PI * 2;
+  }
+
+  function resize(){
+    const rect=canvas.parentElement.getBoundingClientRect();
+    canvas.width=Math.floor(rect.width);
+    canvas.height=Math.floor(rect.height);
+  }
+  resize();
+  window.onresize=()=>{ resize(); draw(); };
+
+  const nodes=data.members.map(m=>({
+    id:m.id,
+    name: memberDisplayName(m),
+    company: m.company||"",
+    title: m.title||"",
+    color: m.color,
+    can: m.can||[],
+    need: m.need||[],
+    r: 8 + (m.can?.length||0)*2,
+    x:0,y:0,vx:0,vy:0,fx:0,fy:0
+  }));
+
+  const idMap=new Map(nodes.map(n=>[n.id,n]));
+  const links=[];
+  nodes.forEach(a=>{
+    nodes.forEach(b=>{
+      if(a.id===b.id) return;
+      const inter=a.can.filter(c=>b.need.includes(c));
+      if(inter.length){
+        links.push({source:a, target:b, weight:inter.length});
+      }
+    });
+  });
+
+  let saved=null;
+  try{ saved = JSON.parse(localStorage.getItem(MAP_STATE_KEY)||"null"); }catch(e){ saved=null; }
+  const cx0 = canvas.width/2, cy0 = canvas.height/2;
+  const baseR = Math.min(canvas.width, canvas.height) * 0.22;
+
+  nodes.forEach((n, idx)=>{
+    const rec = saved && saved[n.id];
+    if(rec && typeof rec.x==="number" && typeof rec.y==="number"){
+      n.x = rec.x; n.y = rec.y;
+      n.vx = rec.vx||0; n.vy = rec.vy||0;
+    } else {
+      const ang = hashToAngle(n.id);
+      const jitter = (idx%7) * 6;
+      n.x = cx0 + Math.cos(ang)*(baseR + jitter);
+      n.y = cy0 + Math.sin(ang)*(baseR + jitter);
+      n.vx = 0; n.vy = 0;
+    }
+  });
+
+  function toWorld(mx,my){
+    return { x: (mx - mapOffsetX) / mapScale, y: (my - mapOffsetY) / mapScale };
+  }
+  function hitTestWorld(wx,wy){
+    for(let i=nodes.length-1;i>=0;i--){
+      const n=nodes[i];
+      const dx=wx-n.x, dy=wy-n.y;
+      if(dx*dx+dy*dy <= (n.r+4)*(n.r+4)) return n;
+    }
+    return null;
+  }
+
+  let draggingId=null, dragOffsetX=0, dragOffsetY=0;
+
+  canvas.onmousemove=(e)=>{
+    const rect=canvas.getBoundingClientRect();
+    const mx=e.clientX-rect.left;
+    const my=e.clientY-rect.top;
+    const w = toWorld(mx,my);
+
+    if(draggingId){
+      const n=idMap.get(draggingId);
+      if(n){
+        n.x = w.x - dragOffsetX;
+        n.y = w.y - dragOffsetY;
+        n.vx = 0; n.vy = 0;
+      }
+      mapHoveredId = draggingId;
+      if(tip){
+        tip.style.display="block";
+        const nn=idMap.get(draggingId);
+        tip.innerHTML = `<div class="name" style="color:${nn.color}">${nn.name}</div>
+          <div class="meta">${[nn.company,nn.title].filter(Boolean).join(" • ")}</div>
+          <div class="meta">Can: ${nn.can.length} • Need: ${nn.need.length}</div>`;
+      }
+      draw();
+      return;
+    }
+
+    const n=hitTestWorld(w.x,w.y);
+    mapHoveredId = n ? n.id : null;
+    if(tip){
+      if(n){
+        tip.style.display="block";
+        tip.innerHTML = `<div class="name" style="color:${n.color}">${n.name}</div>
+          <div class="meta">${[n.company,n.title].filter(Boolean).join(" • ")}</div>
+          <div class="meta">Can: ${n.can.length} • Need: ${n.need.length}</div>`;
+      } else {
+        tip.style.display="none";
+      }
+    }
+    draw();
+  };
+
+  canvas.onmousedown=(e)=>{
+    const rect=canvas.getBoundingClientRect();
+    const mx=e.clientX-rect.left;
+    const my=e.clientY-rect.top;
+    const w = toWorld(mx,my);
+    const n=hitTestWorld(w.x,w.y);
+    if(n){
+      draggingId=n.id;
+      dragOffsetX = w.x - n.x;
+      dragOffsetY = w.y - n.y;
+    }
+  };
+  canvas.onmouseup=()=>{ draggingId=null; };
+
+  canvas.onclick=()=>{
+    if(mapHoveredId) mapSelectedId = mapHoveredId;
+    else mapSelectedId = null;
+    renderMapPanel();
+    draw();
+  };
+
+  canvas.addEventListener("wheel", (e)=>{
+    e.preventDefault();
+    const rect=canvas.getBoundingClientRect();
+    const mx=e.clientX-rect.left;
+    const my=e.clientY-rect.top;
+
+    const before = toWorld(mx,my);
+    const zoomIntensity = 0.0015;
+    const scaleFactor = 1 - e.deltaY * zoomIntensity;
+    const newScale = Math.min(3, Math.max(0.4, mapScale * scaleFactor));
+
+    mapOffsetX = mx - before.x * newScale;
+    mapOffsetY = my - before.y * newScale;
+    mapScale = newScale;
+
+    draw();
+  }, {passive:false});
+
+  const params = { centerPull:0.0065, repel:5200, springK:0.012, springLen:125, damping:0.86, collisionPad:4 };
+
+  function step(){
+    const cx = canvas.width/2;
+    const cy = canvas.height/2;
+    const maxRadius = Math.min(canvas.width, canvas.height) * 0.40;
+
+    nodes.forEach(n=>{
+      n.fx = (cx - n.x) * params.centerPull;
+      n.fy = (cy - n.y) * params.centerPull;
+    });
+
+    for(let i=0;i<nodes.length;i++){
+      for(let j=i+1;j<nodes.length;j++){
+        const a=nodes[i], b=nodes[j];
+        let dx=a.x-b.x, dy=a.y-b.y;
+        let d2=dx*dx+dy*dy;
+        if(d2<1) d2=1;
+        const d=Math.sqrt(d2);
+        const f=params.repel/d2;
+        const fx=f*dx/d, fy=f*dy/d;
+        a.fx += fx; a.fy += fy;
+        b.fx -= fx; b.fy -= fy;
+      }
+    }
+
+    links.forEach(l=>{
+      const a=l.source, b=l.target;
+      let dx=b.x-a.x, dy=b.y-a.y;
+      const d=Math.sqrt(dx*dx+dy*dy)||1;
+      const targetLen = params.springLen - Math.min(30, l.weight*6);
+      const diff=d-targetLen;
+      const f=params.springK*diff;
+      const fx=f*dx/d, fy=f*dy/d;
+      a.fx += fx; a.fy += fy;
+      b.fx -= fx; b.fy -= fy;
+    });
+
+    for(let i=0;i<nodes.length;i++){
+      for(let j=i+1;j<nodes.length;j++){
+        const a=nodes[i], b=nodes[j];
+        let dx=b.x-a.x, dy=b.y-a.y;
+        let d=Math.sqrt(dx*dx+dy*dy)||1;
+        const minDist = a.r + b.r + params.collisionPad;
+        if(d < minDist){
+          const push = (minDist - d) * 0.06;
+          const ux=dx/d, uy=dy/d;
+          a.fx -= ux*push; a.fy -= uy*push;
+          b.fx += ux*push; b.fy += uy*push;
+        }
+      }
+    }
+
+    nodes.forEach(n=>{
+      if(draggingId===n.id) return;
+      n.vx = (n.vx + n.fx) * params.damping;
+      n.vy = (n.vy + n.fy) * params.damping;
+      n.x += n.vx;
+      n.y += n.vy;
+
+      const dx=n.x-cx, dy=n.y-cy;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist>maxRadius){
+        const ratio=maxRadius/dist;
+        n.x = cx + dx*ratio;
+        n.y = cy + dy*ratio;
+        n.vx *= 0.4; n.vy *= 0.4;
+      }
+    });
+  }
+
+  function dimmed(n){
+    if(!mapSelectedId) return false;
+    if(n.id===mapSelectedId) return false;
+    for(const l of links){
+      if((l.source.id===mapSelectedId && l.target.id===n.id) ||
+         (l.target.id===mapSelectedId && l.source.id===n.id)) return false;
+    }
+    return true;
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // subtle grid in screen space
+    ctx.globalAlpha = 0.06;
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 1;
+    const stepPx = 80;
+    for(let x= (canvas.width%stepPx)/2; x<canvas.width; x+=stepPx){
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke();
+    }
+    for(let y= (canvas.height%stepPx)/2; y<canvas.height; y+=stepPx){
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    ctx.setTransform(mapScale, 0, 0, mapScale, mapOffsetX, mapOffsetY);
+
+    const arrow = (x1,y1,x2,y2,color,alpha,width)=>{
+      const headlen = 10;
+      const dx = x2-x1, dy = y2-y1;
+      const ang = Math.atan2(dy,dx);
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.moveTo(x1,y1);
+      ctx.lineTo(x2,y2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - headlen * Math.cos(ang - Math.PI/7), y2 - headlen * Math.sin(ang - Math.PI/7));
+      ctx.lineTo(x2 - headlen * Math.cos(ang + Math.PI/7), y2 - headlen * Math.sin(ang + Math.PI/7));
+      ctx.closePath();
+      ctx.fill();
+    };
+
+    links.forEach(l=>{
+      if(!mapSelectedId){
+        ctx.globalAlpha=0.12;
+        ctx.strokeStyle="white";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(l.source.x,l.source.y);
+        ctx.lineTo(l.target.x,l.target.y);
+        ctx.stroke();
+        return;
+      }
+
+      const isOut = l.source.id===mapSelectedId;
+      const isIn  = l.target.id===mapSelectedId;
+      if(!isOut && !isIn) return;
+
+      const sx=l.source.x, sy=l.source.y, tx=l.target.x, ty=l.target.y;
+      const w = 1.2 + Math.min(3.5, l.weight*0.7);
+
+      if(isOut){
+        arrow(sx,sy,tx,ty, l.source.color, 0.55, w);
+      } else if(isIn){
+        arrow(sx,sy,tx,ty, l.target.color, 0.35, w);
+      }
+    });
+
+    ctx.globalAlpha=1;
+
+    nodes.forEach(n=>{
+      const dim = dimmed(n);
+      ctx.globalAlpha = dim ? 0.20 : 1;
+
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,.55)';
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 2;
+      ctx.beginPath();
+      ctx.fillStyle = n.color;
+      ctx.arc(n.x,n.y,n.r,0,Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+
+      if(n.id===mapSelectedId || n.id===mapHoveredId){
+        ctx.globalAlpha = 1;
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "rgba(255,255,255,.85)";
+        ctx.beginPath();
+        ctx.arc(n.x,n.y,n.r,0,Math.PI*2);
+        ctx.stroke();
+      }
+
+      ctx.globalAlpha = dim ? 0.32 : 0.92;
+      ctx.fillStyle="white";
+      ctx.font="12px system-ui";
+      ctx.textAlign="center";
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = 'rgba(0,0,0,.55)';
+      ctx.strokeText(n.name, n.x, n.y+n.r+14);
+      ctx.fillText(n.name, n.x, n.y+n.r+14);
+    });
+
+    ctx.globalAlpha=1;
+    ctx.setTransform(1,0,0,1,0,0);
+
+    const zi = document.getElementById("zoomIndicator");
+    if(zi){ zi.textContent = Math.round(mapScale * 100) + "%"; }
+
+  }
+
+  window.__councilMapRedraw = draw;
+
+  let raf=null;
+  function loop(){
+    step();
+    draw();
+    raf=requestAnimationFrame(loop);
+  }
+
+  if(window.__councilMapStop){ window.__councilMapStop(); }
+  window.__councilMapStop = ()=>{ if(raf) cancelAnimationFrame(raf); raf=null; };
+
+  let saveTick=0;
+  function autosave(){
+    saveTick++;
+    if(saveTick % 30 === 0){
+      const obj={};
+      nodes.forEach(n=>{ obj[n.id]={x:n.x,y:n.y,vx:n.vx,vy:n.vy}; });
+      try{ localStorage.setItem(MAP_STATE_KEY, JSON.stringify(obj)); }catch(e){}
+    }
+    requestAnimationFrame(autosave);
+  }
+  requestAnimationFrame(autosave);
+
+  loop();
+}
+
+
+init();
+</script>
+
+<div id="capModalBackdrop" style="position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:9999">
+  <div style="width:min(720px,92vw);max-height:80vh;overflow:auto;background:#0f1117;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:16px 16px 12px 16px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+      <div>
+        <div style="font-weight:800" id="capModalTitle">Delete capability</div>
+        <div class="small" id="capModalSubtitle"></div>
+      </div>
+      <button class="secondary" onclick="closeCapModal()">Close</button>
+    </div>
+    <div style="margin-top:12px" class="card">
+      <div style="font-weight:650;margin-bottom:6px">Impacted members</div>
+      <div class="small" id="capModalImpactNote"></div>
+      <div id="capModalImpactList" style="margin-top:10px"></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:12px">
+      <button class="secondary" onclick="closeCapModal()">Cancel</button>
+      <button id="capModalDeleteBtn" onclick="confirmDeleteCapability()">Delete</button>
+    </div>
+  </div>
+</div>
+
+
+<div id="resetModalBackdrop" style="position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:9999">
+  <div style="width:min(760px,92vw);max-height:80vh;overflow:auto;background:#0f1117;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:16px 16px 12px 16px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+      <div>
+        <div style="font-weight:900" id="resetModalTitle">Restore Baseline Dataset?</div>
+        <div class="small" id="resetModalSubtitle">This will overwrite your current working data in this browser.</div>
+      </div>
+      <button class="secondary" onclick="closeResetModal()">Close</button>
+    </div>
+
+    <div style="margin-top:12px" class="card">
+      <div style="font-weight:700;margin-bottom:6px">What will happen</div>
+      <ul style="margin:0;padding-left:18px;color:rgba(255,255,255,.82)">
+        <li>Your current edits (members/capabilities/domains) in this browser will be replaced.</li>
+        <li>The platform will reload the embedded baseline dataset.</li>
+        <li>This does not read Excel. It only restores the embedded baseline snapshot.</li>
+      </ul>
+      <div class="small" style="margin-top:10px">If you want a permanent baseline update, download an updated seed file first.</div>
+    </div>
+
+    <div style="margin-top:12px" class="card">
+      <div style="font-weight:700;margin-bottom:6px">Recommended safety step</div>
+      <div class="small">Publish a new baseline (downloads a new HTML embedding your current dataset as the baseline).</div>
+      <button onclick="downloadUpdatedSeedFile()">Publish New Baseline</button>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:12px">
+      <button class="secondary" onclick="closeResetModal()">Cancel</button>
+      <button id="resetConfirmBtn" onclick="confirmResetToSeed()">Restore Baseline Dataset</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
